@@ -33,6 +33,8 @@ public enum SignatureScheme {
   Secp256k1((byte) 0x01),
   /** Secp256r1 signature scheme. */
   Secp256r1((byte) 0x02),
+	MultiSig((byte) 0x03),
+	ZkLogin((byte) 0x05),
   /** BLS12381 signature scheme. */
   BLS12381((byte) 0xff);
 

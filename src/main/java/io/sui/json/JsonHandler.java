@@ -21,6 +21,12 @@ import io.sui.jsonrpc.JsonRpc20Request;
 import io.sui.jsonrpc.JsonRpc20Response;
 import io.sui.jsonrpc.JsonRpc20WSResponse;
 import io.sui.models.FaucetResponse;
+import io.sui.models.enoki.BaseEnokiResponse;
+import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.ZkLoginResponse;
+import io.sui.models.enoki.ZkProofResponse;
+import io.sui.models.zklogin.SaltResponse;
+
 import java.lang.reflect.Type;
 import java.util.Map;
 
@@ -75,4 +81,12 @@ public interface JsonHandler {
    * @return the string
    */
   String toJson(JsonRpc20Request request);
+
+  BaseEnokiResponse<NonceResponse> fromNonce(String response);
+
+  BaseEnokiResponse<ZkLoginResponse> fromZkLogin(String response);
+
+  BaseEnokiResponse<ZkProofResponse> fromProof(String response);
+
+  SaltResponse fromJsonSalt(String response);
 }

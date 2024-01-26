@@ -438,5 +438,18 @@ final class TraitHelpers {
         return obj;
     }
 
+    static void serialize_vector_str(java.util.List<String> value, com.novi.serde.Serializer serializer) throws com.novi.serde.SerializationError {
+        serializer.serialize_len(value.size());
+        for (String item : value) {
+            serializer.serialize_str(item);
+        }
+    }
+
+    static void serialize_vector_vector_str(java.util.List<java.util.List<String>> value, com.novi.serde.Serializer serializer) throws com.novi.serde.SerializationError {
+        serializer.serialize_len(value.size());
+        for (java.util.List<String> item : value) {
+            TraitHelpers.serialize_vector_str(item, serializer);
+        }
+    }
 }
 

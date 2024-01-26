@@ -226,11 +226,7 @@ public class OkHttpJsonRpcClientProvider extends JsonRpcClientProvider {
       LOGGER.trace("request body: {}", requestBodyJsonStr);
       final RequestBody requestBody =
           RequestBody.create(requestBodyJsonStr, MediaType.get("application/json; charset=utf-8"));
-      okhttpRequest =
-          new Request.Builder()
-              .url(String.format("%s%s", this.baseUrl, url))
-              .post(requestBody)
-              .build();
+      okhttpRequest = new Request.Builder().url(this.baseUrl).post(requestBody).build();
     } catch (Throwable throwable) {
       future.completeExceptionally(throwable);
       return future;
