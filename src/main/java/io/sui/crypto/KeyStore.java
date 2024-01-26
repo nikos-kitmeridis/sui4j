@@ -59,6 +59,8 @@ public interface KeyStore {
    */
   KeyResponse generateNewKey(SignatureScheme schema) throws SignatureSchemeNotSupportedException;
 
+  SuiKeyPair<?> generateSuiKeyPair(SignatureScheme schema);
+
   /**
    * Import from mnemonic string.
    *

@@ -18,12 +18,14 @@ package io.sui;
 
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Bytes;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.sui.bcsgen.Argument;
 import io.sui.bcsgen.Intent;
 import io.sui.bcsgen.TransactionData;
 import io.sui.clients.QueryClient;
 import io.sui.clients.TransactionBlock;
+import io.sui.crypto.ED25519KeyPair;
 import io.sui.crypto.KeyResponse;
 import io.sui.crypto.SignatureScheme;
 import io.sui.models.FaucetResponse;
@@ -31,6 +33,7 @@ import io.sui.models.coin.Balance;
 import io.sui.models.coin.CoinMetadata;
 import io.sui.models.coin.CoinSupply;
 import io.sui.models.coin.PaginatedCoins;
+import io.sui.models.enoki.*;
 import io.sui.models.events.EventFilter.AllEventFilter;
 import io.sui.models.events.PaginatedEvents;
 import io.sui.models.events.SuiEvent;
@@ -93,7 +96,7 @@ public class SuiIntTests {
   private static final String KEY_STORE_PATH =
       Paths.get("src", "integrationTest", "sui.keystore").toAbsolutePath().toString();
 
-  private static final Sui SUI = new Sui(BASE_NODE_URL, BASE_FAUCET_URL, KEY_STORE_PATH);
+  private static final Sui SUI = new Sui(BASE_NODE_URL, BASE_FAUCET_URL, KEY_STORE_PATH, "https://api.enoki.mystenlabs.com");
 
   @BeforeAll
   static void setUp() {
@@ -139,6 +142,43 @@ public class SuiIntTests {
             });
   }
 
+
+    public static BigInteger toBigIntBE(byte[] bytes) {
+        byte[] positiveBytes = new byte[bytes.length + 1];
+        System.arraycopy(bytes, 0, positiveBytes, 1, bytes.length);
+        return new BigInteger(positiveBytes);
+    }
+
+    private static char uint6ToB64(int nUint6) {
+        return (char) (nUint6 < 26 ? nUint6 + 65
+                : nUint6 < 52 ? nUint6 + 71
+                : nUint6 < 62 ? nUint6 - 4
+                : nUint6 == 62 ? 43
+                : nUint6 == 63 ? 47
+                : 65);
+    }
+
+    public static String toB64(byte[] aBytes) {
+        int nMod3 = 2;
+        StringBuilder sB64Enc = new StringBuilder();
+
+        int nLen = aBytes.length;
+        int nUint24 = 0;
+        for (int nIdx = 0; nIdx < nLen; nIdx++) {
+            nMod3 = nIdx % 3;
+            nUint24 |= (aBytes[nIdx] & 0xFF) << ((16 >>> nMod3) & 24);
+            if (nMod3 == 2 || aBytes.length - nIdx == 1) {
+                sB64Enc.append(uint6ToB64((nUint24 >>> 18) & 63));
+                sB64Enc.append(uint6ToB64((nUint24 >>> 12) & 63));
+                sB64Enc.append(uint6ToB64((nUint24 >>> 6) & 63));
+                sB64Enc.append(uint6ToB64(nUint24 & 63));
+                nUint24 = 0;
+            }
+        }
+
+        return sB64Enc.substring(0, sB64Enc.length() - 2 + nMod3) +
+                (nMod3 == 2 ? "" : nMod3 == 1 ? "=" : "==");
+    }
   /**
    * Move call.
    *
@@ -148,7 +188,19 @@ public class SuiIntTests {
   @Test
   @DisplayName("Test moveCall.")
   void moveCall() throws ExecutionException, InterruptedException {
-    ObjectResponseQuery objectResponseQuery = new ObjectResponseQuery();
+      String jwt = "";
+
+      ZkLoginResponse zkLoginResponse = SUI.requestZkLogin(jwt).get().getData();
+
+      byte[] publicKey = ED25519KeyPair.generate().publicKeyBytes();
+
+      byte[] flaggedPublicKey = Bytes.concat(new byte[] {SignatureScheme.ED25519.getScheme()}, publicKey);
+      String publicKeyBytes = toB64(flaggedPublicKey);
+      NonceResponse nonceResponse = SUI.requestNonce(publicKeyBytes)
+              .get().getData();
+      ZkProofResponse zkProofResponse = SUI.requestZkProof(new ZkProofRequest(jwt, publicKeyBytes, nonceResponse.getMaxEpoch(), nonceResponse
+              .getRandomness())).get().getData();
+      ObjectResponseQuery objectResponseQuery = new ObjectResponseQuery();
     final Optional<String> sender =
         SUI.addresses().stream()
             .filter(

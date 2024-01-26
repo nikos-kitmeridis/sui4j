@@ -53,7 +53,7 @@ public abstract class AbstractKeyStore implements KeyStore {
   public abstract void addKey(String address, SuiKeyPair<?> keyPair);
 
   /**
-   * Generate new key key response.
+   * Generate new key response.
    *
    * @param schema the schema
    * @return the key response
@@ -100,6 +100,23 @@ public abstract class AbstractKeyStore implements KeyStore {
 
     this.addKey(keyPair.address(), keyPair);
     return keyPair.address();
+  }
+
+  @Override
+  public SuiKeyPair<?> generateSuiKeyPair(SignatureScheme schema) {
+    SecureRandom secureRandom = new SecureRandom();
+    byte[] entropy = new byte[16];
+    secureRandom.nextBytes(entropy);
+    List<String> mnemonic = new ArrayList<>();
+
+    try {
+      mnemonic = MnemonicCode.INSTANCE.toMnemonic(entropy);
+    } catch (Exception e) {
+      // MnemonicLengthException won't happen
+    }
+
+    byte[] seed = MnemonicCode.toSeed(mnemonic, "");
+    return genSuiKeyPair(seed, schema);
   }
 
   private SuiKeyPair<?> genSuiKeyPair(byte[] seed, SignatureScheme schema)

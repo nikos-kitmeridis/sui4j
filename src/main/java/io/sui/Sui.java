@@ -18,24 +18,14 @@ package io.sui;
 
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Bytes;
 import com.novi.serde.SerializationError;
+import com.novi.serde.Serializer;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Consumer;
-import io.sui.bcsgen.Argument;
-import io.sui.bcsgen.Intent;
-import io.sui.bcsgen.SuiAddress;
+import io.sui.bcsgen.*;
 import io.sui.bcsgen.SuiAddress.Builder;
-import io.sui.bcsgen.TransactionData;
-import io.sui.clients.BcsSerializationException;
-import io.sui.clients.ExecutionClient;
-import io.sui.clients.ExecutionClientImpl;
-import io.sui.clients.FaucetClient;
-import io.sui.clients.OkhttpFaucetClient;
-import io.sui.clients.QueryClient;
-import io.sui.clients.QueryClientImpl;
-import io.sui.clients.SubscribeClient;
-import io.sui.clients.SubscribeClientImpl;
-import io.sui.clients.TransactionBlock;
+import io.sui.clients.*;
 import io.sui.crypto.FileBasedKeyStore;
 import io.sui.crypto.KeyResponse;
 import io.sui.crypto.KeyStore;
@@ -52,6 +42,7 @@ import io.sui.models.coin.Balance;
 import io.sui.models.coin.CoinMetadata;
 import io.sui.models.coin.CoinSupply;
 import io.sui.models.coin.PaginatedCoins;
+import io.sui.models.enoki.*;
 import io.sui.models.events.EventFilter;
 import io.sui.models.events.EventId;
 import io.sui.models.events.PaginatedEvents;
@@ -82,8 +73,13 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import io.sui.models.zklogin.SaltResponse;
+import io.sui.zklogin.Utils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.bouncycastle.jcajce.provider.digest.Blake2b.Blake2b256;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Base64;
@@ -106,6 +102,8 @@ public class Sui {
 
   private final FaucetClient faucetClient;
 
+  private final Optional<EnokiClient> enokiClient;
+
   /**
    * Instantiates a new Sui.
    *
@@ -114,6 +112,18 @@ public class Sui {
    * @param keyStorePath the key store path
    */
   public Sui(String fullNodeEndpoint, String faucetEndpoint, String keyStorePath) {
+      this.keyStore = new FileBasedKeyStore(keyStorePath);
+      final JsonHandler jsonHandler = new GsonJsonHandler();
+      final JsonRpcClientProvider jsonRpcClientProvider =
+              new OkHttpJsonRpcClientProvider(fullNodeEndpoint, jsonHandler);
+      this.queryClient = new QueryClientImpl(jsonRpcClientProvider);
+      this.executionClient = new ExecutionClientImpl(jsonRpcClientProvider);
+      this.subscribeClient = new SubscribeClientImpl(jsonRpcClientProvider);
+      this.faucetClient = new OkhttpFaucetClient(faucetEndpoint, jsonHandler);
+      this.enokiClient = Optional.empty();
+  }
+
+  public Sui(String fullNodeEndpoint, String faucetEndpoint, String keyStorePath, String enokiServerEndpoint) {
     this.keyStore = new FileBasedKeyStore(keyStorePath);
     final JsonHandler jsonHandler = new GsonJsonHandler();
     final JsonRpcClientProvider jsonRpcClientProvider =
@@ -122,6 +132,7 @@ public class Sui {
     this.executionClient = new ExecutionClientImpl(jsonRpcClientProvider);
     this.subscribeClient = new SubscribeClientImpl(jsonRpcClientProvider);
     this.faucetClient = new OkhttpFaucetClient(faucetEndpoint, jsonHandler);
+    this.enokiClient = Optional.of(new OkhttpEnokiClient(enokiServerEndpoint, jsonHandler));
   }
 
   /**
@@ -134,7 +145,22 @@ public class Sui {
     return this.faucetClient.requestSuiFromFaucet(address);
   }
 
-  /**
+    public CompletableFuture<BaseEnokiResponse<NonceResponse>> requestNonce(String publicKey) {
+        return this.enokiClient.get().requestNonce(publicKey);
+    }
+    public CompletableFuture<BaseEnokiResponse<ZkLoginResponse>> requestZkLogin(String jwt) {
+        return this.enokiClient.get().requestZkLogin(jwt);
+    }
+
+    public CompletableFuture<BaseEnokiResponse<ZkProofResponse>> requestZkProof(ZkProofRequest proofRequest) {
+        return this.enokiClient.get().requestZkProof(proofRequest);
+    }
+
+    public KeyStore getKeyStore() {
+        return keyStore;
+    }
+
+    /**
    * New address key response.
    *
    * @param signatureScheme the signature scheme
@@ -211,6 +237,67 @@ public class Sui {
                                                 transactionBlockResponseOptions, requestType));
                               });
                 });
+  }
+
+  public TransactionData transferSuiTransactionData(String sender,
+                                                    String coin,
+                                                    String recipient,
+                                                    Long amount,
+                                                    String gas,
+                                                    Long gasBudget,
+                                                    Long gasPrice,
+                                                    Long expiration) {
+      try {
+          TransactionBlock transactionBlock = this.newTransactionBlock().get();
+          transactionBlock.setExpiration(expiration);
+          transactionBlock.setSender(sender);
+          Argument argument = transactionBlock.splitCoins(coin, Lists.newArrayList(amount)).get();
+          SuiAddress.Builder recipientAddressBuilder = new Builder();
+          recipientAddressBuilder.value = transactionBlock.geAddressBytes(recipient);
+          transactionBlock.transferObjects(
+                  Lists.newArrayList(argument),
+                  transactionBlock.pure(recipientAddressBuilder.build()));
+          TransactionData transactionData =
+                  transactionBlock
+                          .setGasData(
+                                  gas != null
+                                          ? Lists.newArrayList(gas)
+                                          : Lists.newArrayList(),
+                                  sender,
+                                  gasBudget,
+                                  gasPrice)
+                          .thenCompose(
+                                  (Function<Void, CompletableFuture<TransactionData>>)
+                                          unused -> transactionBlock.build()).get();
+          return transactionData;
+      } catch (Exception e) {
+          throw new RuntimeException(e);
+      }
+  }
+
+  public String getZkLoginSignature(ZkProofResponse zkProofResponse, String maxEpoch, String userSignature) {
+      try {
+          ZkProof zkProof = new ZkProof(
+                  new ZkProofPoints(
+                          zkProofResponse.getProofPoints().getA(),
+                          zkProofResponse.getProofPoints().getB(),
+                          zkProofResponse.getProofPoints().getC()),
+                  new ZkIssBase64Details(
+                          zkProofResponse.getIssBase64Details().getValue(),
+                          zkProofResponse.getIssBase64Details().getIndexMod4()),
+                  zkProofResponse.getHeaderBase64(),
+                  zkProofResponse.getAddressSeed()
+          );
+          ZkLoginSignature zkLoginSignature = new ZkLoginSignature(
+                  zkProof,
+                  maxEpoch,
+                  java.util.Arrays.asList(ArrayUtils.toObject(java.util.Base64.getDecoder().decode(userSignature))));
+          byte[] bytes = zkLoginSignature.bcsSerialize();
+          byte[] flaggedSignature = Bytes.concat(new byte[] {SignatureScheme.ZkLogin.getScheme()}, bytes);
+          return Utils.toB64(flaggedSignature);
+      } catch (Exception e) {
+          throw new RuntimeException(e);
+      }
   }
 
   /**
@@ -1000,14 +1087,22 @@ public class Sui {
         Arrays.concatenate(new byte[] {signatureScheme.getScheme()}, signature, publicKey);
     final String serializedSignature = Base64.toBase64String(serializedSignatureBytes);
 
-    return executionClient.executeTransaction(
-        Base64.toBase64String(transactionData),
-        Lists.newArrayList(serializedSignature),
-        transactionBlockResponseOptions,
-        requestType);
+      return executeTransaction(transactionData, transactionBlockResponseOptions, requestType, serializedSignature);
   }
 
-  /**
+    public CompletableFuture<TransactionBlockResponse> executeTransaction(
+            byte[] transactionData,
+            TransactionBlockResponseOptions transactionBlockResponseOptions,
+            ExecuteTransactionRequestType requestType,
+            String serializedSignature) {
+        return executionClient.executeTransaction(
+                Base64.toBase64String(transactionData),
+                Lists.newArrayList(serializedSignature),
+                transactionBlockResponseOptions,
+                requestType);
+    }
+
+    /**
    * Transaction data intent intent.
    *
    * @return the intent
