@@ -31,6 +31,28 @@ public class ZkProofPoints {
         return serializer.get_bytes();
     }
 
+    public static ZkProofPoints deserialize(com.novi.serde.Deserializer deserializer) throws com.novi.serde.DeserializationError {
+        deserializer.increase_container_depth();
+        Builder builder = new Builder();
+        builder.a = TraitHelpers.deserialize_vector_str(deserializer);
+        builder.b = TraitHelpers.deserialize_vector_vector_str(deserializer);
+        builder.c = TraitHelpers.deserialize_vector_str(deserializer);
+        deserializer.decrease_container_depth();
+        return builder.build();
+    }
+
+    public static ZkProofPoints bcsDeserialize(byte[] input) throws com.novi.serde.DeserializationError {
+        if (input == null) {
+            throw new com.novi.serde.DeserializationError("Cannot deserialize null array");
+        }
+        com.novi.serde.Deserializer deserializer = new com.novi.bcs.BcsDeserializer(input);
+        ZkProofPoints value = deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.length) {
+            throw new com.novi.serde.DeserializationError("Some input bytes were not read");
+        }
+        return value;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -42,5 +64,15 @@ public class ZkProofPoints {
     @Override
     public int hashCode() {
         return Objects.hash(a, b, c);
+    }
+
+    public static final class Builder {
+        public List<String> a;
+        public List<List<String>> b;
+        public List<String> c;
+
+        public ZkProofPoints build() {
+            return new ZkProofPoints(a, b, c);
+        }
     }
 }

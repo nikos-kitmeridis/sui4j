@@ -20,12 +20,30 @@ package io.sui;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.novi.serde.SerializationError;
-import com.novi.serde.Serializer;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Consumer;
-import io.sui.bcsgen.*;
+import io.sui.bcsgen.Argument;
+import io.sui.bcsgen.Intent;
+import io.sui.bcsgen.SuiAddress;
 import io.sui.bcsgen.SuiAddress.Builder;
-import io.sui.clients.*;
+import io.sui.bcsgen.TransactionData;
+import io.sui.bcsgen.ZkIssBase64Details;
+import io.sui.bcsgen.ZkLoginSignature;
+import io.sui.bcsgen.ZkLoginSignatureData;
+import io.sui.bcsgen.ZkProof;
+import io.sui.bcsgen.ZkProofPoints;
+import io.sui.clients.BcsSerializationException;
+import io.sui.clients.EnokiClient;
+import io.sui.clients.ExecutionClient;
+import io.sui.clients.ExecutionClientImpl;
+import io.sui.clients.FaucetClient;
+import io.sui.clients.OkhttpEnokiClient;
+import io.sui.clients.OkhttpFaucetClient;
+import io.sui.clients.QueryClient;
+import io.sui.clients.QueryClientImpl;
+import io.sui.clients.SubscribeClient;
+import io.sui.clients.SubscribeClientImpl;
+import io.sui.clients.TransactionBlock;
 import io.sui.crypto.FileBasedKeyStore;
 import io.sui.crypto.KeyResponse;
 import io.sui.crypto.KeyStore;
@@ -42,7 +60,11 @@ import io.sui.models.coin.Balance;
 import io.sui.models.coin.CoinMetadata;
 import io.sui.models.coin.CoinSupply;
 import io.sui.models.coin.PaginatedCoins;
-import io.sui.models.enoki.*;
+import io.sui.models.enoki.BaseEnokiResponse;
+import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.ZkLoginResponse;
+import io.sui.models.enoki.ZkProofRequest;
+import io.sui.models.enoki.ZkProofResponse;
 import io.sui.models.events.EventFilter;
 import io.sui.models.events.EventId;
 import io.sui.models.events.PaginatedEvents;
@@ -77,8 +99,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import io.sui.models.zklogin.SaltResponse;
-import io.sui.zklogin.Utils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.bouncycastle.jcajce.provider.digest.Blake2b.Blake2b256;
 import org.bouncycastle.util.Arrays;
@@ -123,7 +143,7 @@ public class Sui {
       this.enokiClient = Optional.empty();
   }
 
-  public Sui(String fullNodeEndpoint, String faucetEndpoint, String keyStorePath, String enokiServerEndpoint) {
+  public Sui(String fullNodeEndpoint, String faucetEndpoint, String keyStorePath, String enokiServerEndpoint, String enokiApiKey) {
     this.keyStore = new FileBasedKeyStore(keyStorePath);
     final JsonHandler jsonHandler = new GsonJsonHandler();
     final JsonRpcClientProvider jsonRpcClientProvider =
@@ -132,7 +152,7 @@ public class Sui {
     this.executionClient = new ExecutionClientImpl(jsonRpcClientProvider);
     this.subscribeClient = new SubscribeClientImpl(jsonRpcClientProvider);
     this.faucetClient = new OkhttpFaucetClient(faucetEndpoint, jsonHandler);
-    this.enokiClient = Optional.of(new OkhttpEnokiClient(enokiServerEndpoint, jsonHandler));
+    this.enokiClient = Optional.of(new OkhttpEnokiClient(enokiServerEndpoint, enokiApiKey, jsonHandler));
   }
 
   /**
@@ -288,13 +308,14 @@ public class Sui {
                   zkProofResponse.getHeaderBase64(),
                   zkProofResponse.getAddressSeed()
           );
-          ZkLoginSignature zkLoginSignature = new ZkLoginSignature(
+          ZkLoginSignatureData zkLoginSignatureData = new ZkLoginSignatureData(
                   zkProof,
                   maxEpoch,
                   java.util.Arrays.asList(ArrayUtils.toObject(java.util.Base64.getDecoder().decode(userSignature))));
+          ZkLoginSignature zkLoginSignature = new ZkLoginSignature(zkLoginSignatureData);
           byte[] bytes = zkLoginSignature.bcsSerialize();
           byte[] flaggedSignature = Bytes.concat(new byte[] {SignatureScheme.ZkLogin.getScheme()}, bytes);
-          return Utils.toB64(flaggedSignature);
+          return Base64.toBase64String(flaggedSignature);
       } catch (Exception e) {
           throw new RuntimeException(e);
       }

@@ -15,7 +15,7 @@ public class ZkIssBase64Details {
     public void serialize(com.novi.serde.Serializer serializer) throws com.novi.serde.SerializationError {
         serializer.increase_container_depth();
         serializer.serialize_str(value);
-        serializer.serialize_i32(indexMod4);
+        serializer.serialize_u8((byte) (indexMod4 & 0xFF));
         serializer.decrease_container_depth();
     }
 
@@ -23,6 +23,27 @@ public class ZkIssBase64Details {
         com.novi.serde.Serializer serializer = new com.novi.bcs.BcsSerializer();
         serialize(serializer);
         return serializer.get_bytes();
+    }
+
+    public static ZkIssBase64Details deserialize(com.novi.serde.Deserializer deserializer) throws com.novi.serde.DeserializationError {
+        deserializer.increase_container_depth();
+        Builder builder = new Builder();
+        builder.value = deserializer.deserialize_str();
+        builder.indexMod4 = deserializer.deserialize_u8();
+        deserializer.decrease_container_depth();
+        return builder.build();
+    }
+
+    public static ZkIssBase64Details bcsDeserialize(byte[] input) throws com.novi.serde.DeserializationError {
+        if (input == null) {
+            throw new com.novi.serde.DeserializationError("Cannot deserialize null array");
+        }
+        com.novi.serde.Deserializer deserializer = new com.novi.bcs.BcsDeserializer(input);
+        ZkIssBase64Details value = deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.length) {
+            throw new com.novi.serde.DeserializationError("Some input bytes were not read");
+        }
+        return value;
     }
 
     @Override
@@ -36,5 +57,14 @@ public class ZkIssBase64Details {
     @Override
     public int hashCode() {
         return Objects.hash(value, indexMod4);
+    }
+
+    public static final class Builder {
+        public String value;
+        public int indexMod4;
+
+        public ZkIssBase64Details build() {
+            return new ZkIssBase64Details(value, indexMod4);
+        }
     }
 }
