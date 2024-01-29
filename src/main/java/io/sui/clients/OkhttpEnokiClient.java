@@ -2,8 +2,19 @@ package io.sui.clients;
 
 import io.sui.json.JsonHandler;
 import io.sui.models.SuiApiException;
-import io.sui.models.enoki.*;
-import okhttp3.*;
+import io.sui.models.enoki.BaseEnokiResponse;
+import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.ZkLoginResponse;
+import io.sui.models.enoki.ZkProofRequest;
+import io.sui.models.enoki.ZkProofResponse;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -17,6 +28,8 @@ public class OkhttpEnokiClient implements EnokiClient {
 
     private final String baseUrl;
 
+    private final String apiKey;
+
     private final JsonHandler jsonHandler;
 
     /**
@@ -25,8 +38,9 @@ public class OkhttpEnokiClient implements EnokiClient {
      * @param baseUrl the base url
      * @param jsonHandler the json handler
      */
-    public OkhttpEnokiClient(String baseUrl, JsonHandler jsonHandler) {
+    public OkhttpEnokiClient(String baseUrl, String apiKey, JsonHandler jsonHandler) {
         this.jsonHandler = jsonHandler;
+        this.apiKey = apiKey;
         this.httpClient =
                 new OkHttpClient()
                         .newBuilder()
@@ -49,7 +63,7 @@ public class OkhttpEnokiClient implements EnokiClient {
                     RequestBody.create(requestBodyJsonStr, MediaType.get("application/json; charset=utf-8"));
             okhttpRequest =
                     new Request.Builder()
-                            .header("Authorization", "Bearer ")
+                            .header("Authorization", String.format("Bearer %s", apiKey))
                             .url(String.format("%s/v1/zklogin/nonce", this.baseUrl))
                             .post(requestBody)
                             .build();
@@ -95,7 +109,7 @@ public class OkhttpEnokiClient implements EnokiClient {
             okhttpRequest =
                     new Request.Builder()
                             .header("zklogin-jwt", jwt)
-                            .header("Authorization", "Bearer ")
+                            .header("Authorization", String.format("Bearer %s", apiKey))
                             .url(String.format("%s/v1/zklogin", this.baseUrl))
                             .get()
                             .build();
@@ -143,7 +157,7 @@ public class OkhttpEnokiClient implements EnokiClient {
                     RequestBody.create(request.toString(), MediaType.get("application/json; charset=utf-8"));
             okhttpRequest =
                     new Request.Builder()
-                            .header("Authorization", "Bearer ")
+                            .header("Authorization", String.format("Bearer %s", apiKey))
                             .header("zklogin-jwt", request.getJwt())
                             .url(String.format("%s/v1/zklogin/zkp", this.baseUrl))
                             .post(requestBody)

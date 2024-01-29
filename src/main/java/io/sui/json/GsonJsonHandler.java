@@ -637,11 +637,6 @@ public class GsonJsonHandler implements JsonHandler {
     return this.gson.fromJson(response, FaucetResponse.class);
   }
 
-  @Override
-  public SaltResponse fromJsonSalt(String response) {
-    return this.gson.fromJson(response, SaltResponse.class);
-  }
-
   public <T> BaseEnokiResponse<T> fromJson(String response, Class<T> responseType) {
     Type type = TypeToken.getParameterized(BaseEnokiResponse.class, responseType).getType();
     return gson.fromJson(response, type);

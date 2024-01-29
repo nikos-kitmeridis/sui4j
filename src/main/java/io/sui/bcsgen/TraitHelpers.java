@@ -445,11 +445,29 @@ final class TraitHelpers {
         }
     }
 
+    static java.util.List<String> deserialize_vector_str(com.novi.serde.Deserializer deserializer) throws com.novi.serde.DeserializationError {
+        long length = deserializer.deserialize_len();
+        java.util.List<String> obj = new java.util.ArrayList<>((int) length);
+        for (long i = 0; i < length; i++) {
+            obj.add(deserializer.deserialize_str());
+        }
+        return obj;
+    }
+
     static void serialize_vector_vector_str(java.util.List<java.util.List<String>> value, com.novi.serde.Serializer serializer) throws com.novi.serde.SerializationError {
         serializer.serialize_len(value.size());
         for (java.util.List<String> item : value) {
             TraitHelpers.serialize_vector_str(item, serializer);
         }
+    }
+
+    static java.util.List<java.util.List<String>> deserialize_vector_vector_str(com.novi.serde.Deserializer deserializer) throws com.novi.serde.DeserializationError {
+        long length = deserializer.deserialize_len();
+        java.util.List<java.util.List<String>> obj = new java.util.ArrayList<>((int) length);
+        for (long i = 0; i < length; i++) {
+            obj.add(TraitHelpers.deserialize_vector_str(deserializer));
+        }
+        return obj;
     }
 }
 

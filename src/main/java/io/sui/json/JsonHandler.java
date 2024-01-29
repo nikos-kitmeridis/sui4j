@@ -87,6 +87,4 @@ public interface JsonHandler {
   BaseEnokiResponse<ZkLoginResponse> fromZkLogin(String response);
 
   BaseEnokiResponse<ZkProofResponse> fromProof(String response);
-
-  SaltResponse fromJsonSalt(String response);
 }

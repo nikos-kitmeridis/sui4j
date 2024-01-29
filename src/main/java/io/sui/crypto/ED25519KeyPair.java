@@ -18,13 +18,10 @@ package io.sui.crypto;
 
 
 import com.google.common.primitives.Bytes;
-import io.sui.zklogin.Utils;
 import org.apache.commons.lang3.StringUtils;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.CryptoException;
 import org.bouncycastle.crypto.Signer;
-import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator;
-import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
@@ -125,6 +122,6 @@ public class ED25519KeyPair extends SuiKeyPair<AsymmetricCipherKeyPair> implemen
 
   public static String toSuiBytes(byte[] publicKey) {
     byte[] flaggedPublicKey = Bytes.concat(new byte[] {SignatureScheme.ED25519.getScheme()}, publicKey);
-    return Utils.toB64(flaggedPublicKey);
+    return Base64.toBase64String(flaggedPublicKey);
   }
 }
