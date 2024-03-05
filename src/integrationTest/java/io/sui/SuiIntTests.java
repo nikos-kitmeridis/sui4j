@@ -96,7 +96,7 @@ public class SuiIntTests {
   private static final String KEY_STORE_PATH =
       Paths.get("src", "integrationTest", "sui.keystore").toAbsolutePath().toString();
 
-  private static final Sui SUI = new Sui(BASE_NODE_URL, BASE_FAUCET_URL, KEY_STORE_PATH, "https://api.enoki.mystenlabs.com");
+  private static final Sui SUI = new Sui(BASE_NODE_URL, BASE_FAUCET_URL, KEY_STORE_PATH, "https://api.enoki.mystenlabs.com", "enoki_apikey_6e10ed7061a474bee552b1cc4c8491b3");
 
   @BeforeAll
   static void setUp() {

@@ -20,10 +20,14 @@ package io.sui;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.novi.serde.SerializationError;
+import com.novi.serde.Tuple3;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Consumer;
 import io.sui.bcsgen.Argument;
 import io.sui.bcsgen.Intent;
+import io.sui.bcsgen.ObjectDigest;
+import io.sui.bcsgen.ObjectID;
+import io.sui.bcsgen.SequenceNumber;
 import io.sui.bcsgen.SuiAddress;
 import io.sui.bcsgen.SuiAddress.Builder;
 import io.sui.bcsgen.TransactionData;
@@ -216,57 +220,61 @@ public class Sui {
       Long expiration,
       TransactionBlockResponseOptions transactionBlockResponseOptions,
       ExecuteTransactionRequestType requestType) {
-    return this.newTransactionBlock()
-        .thenCompose(
-            (Function<TransactionBlock, CompletableFuture<TransactionBlockResponse>>)
-                transactionBlock -> {
-                  transactionBlock.setExpiration(expiration);
-                  transactionBlock.setSender(sender);
-                  return transactionBlock
-                      .splitCoins(coin, Lists.newArrayList(amount))
-                      .thenCompose(
-                          (Function<Argument, CompletableFuture<TransactionBlockResponse>>)
-                              argument -> {
-                                SuiAddress.Builder recipientAddressBuilder = new Builder();
-                                recipientAddressBuilder.value =
-                                    transactionBlock.geAddressBytes(recipient);
-                                transactionBlock.transferObjects(
-                                    Lists.newArrayList(argument),
-                                    transactionBlock.pure(recipientAddressBuilder.build()));
-                                CompletableFuture<TransactionData>
-                                    transactionDataCompletableFuture =
-                                        transactionBlock
-                                            .setGasData(
-                                                gas != null
-                                                    ? Lists.newArrayList(gas)
-                                                    : Lists.newArrayList(),
-                                                sender,
-                                                gasBudget,
-                                                gasPrice)
-                                            .thenCompose(
-                                                (Function<Void, CompletableFuture<TransactionData>>)
-                                                    unused -> transactionBlock.build());
 
-                                return transactionDataCompletableFuture.thenCompose(
-                                    (Function<
-                                            TransactionData,
-                                            CompletableFuture<TransactionBlockResponse>>)
-                                        transactionData ->
-                                            executeTransaction(
-                                                sender, transactionData,
-                                                transactionBlockResponseOptions, requestType));
-                              });
-                });
+      Function<TransactionBlock, CompletableFuture<TransactionBlockResponse>> transactionBlockCompletableFutureFunction =
+              transactionBlock -> getTransactionBlockResponseCompletableFuture(
+              sender, coin, recipient, amount, gas,
+              gasBudget, gasPrice, expiration,
+              transactionBlockResponseOptions,
+              requestType, transactionBlock);
+
+      return this.newTransactionBlock().thenCompose(transactionBlockCompletableFutureFunction);
   }
 
-  public TransactionData transferSuiTransactionData(String sender,
+    private CompletableFuture<TransactionBlockResponse> getTransactionBlockResponseCompletableFuture(String sender, String coin, String recipient, Long amount, String gas, Long gasBudget, Long gasPrice, Long expiration, TransactionBlockResponseOptions transactionBlockResponseOptions, ExecuteTransactionRequestType requestType, TransactionBlock transactionBlock) {
+        transactionBlock.setExpiration(expiration);
+        transactionBlock.setSender(sender);
+        Function<Argument, CompletableFuture<TransactionBlockResponse>> argumentCompletableFutureFunction =
+                argument -> getTransactionBlockResponseCompletableFuture(
+                        sender, recipient, gas, gasBudget,
+                        gasPrice, transactionBlockResponseOptions,
+                        requestType, transactionBlock, argument);
+        return transactionBlock
+                .splitCoins(coin, Lists.newArrayList(amount))
+                .thenCompose(argumentCompletableFutureFunction);
+    }
+
+    private CompletableFuture<TransactionBlockResponse> getTransactionBlockResponseCompletableFuture(String sender, String recipient, String gas, Long gasBudget, Long gasPrice, TransactionBlockResponseOptions transactionBlockResponseOptions, ExecuteTransactionRequestType requestType, TransactionBlock transactionBlock, Argument argument) {
+        Builder recipientAddressBuilder = new Builder();
+        recipientAddressBuilder.value = transactionBlock.geAddressBytes(recipient);
+        transactionBlock.transferObjects(
+                Lists.newArrayList(argument),
+                transactionBlock.pure(recipientAddressBuilder.build()));
+        CompletableFuture<TransactionData> transactionDataCompletableFuture = transactionBlock
+                        .setGasData(
+                                gas != null ? Lists.newArrayList(gas) : Lists.newArrayList(),
+                                sender,
+                                gasBudget,
+                                gasPrice)
+                        .thenCompose((Function<Void, CompletableFuture<TransactionData>>) unused -> transactionBlock.build());
+
+        return transactionDataCompletableFuture.thenCompose(
+                (Function<TransactionData, CompletableFuture<TransactionBlockResponse>>)
+                        transactionData ->
+                                executeTransaction(
+                                        sender, transactionData,
+                                        transactionBlockResponseOptions, requestType));
+    }
+
+    public TransactionData transferSuiTransactionData(String sender,
                                                     String coin,
                                                     String recipient,
                                                     Long amount,
                                                     String gas,
                                                     Long gasBudget,
                                                     Long gasPrice,
-                                                    Long expiration) {
+                                                    Long expiration,
+                                                    Tuple3<ObjectID, SequenceNumber, ObjectDigest> gasObj) {
       try {
           TransactionBlock transactionBlock = this.newTransactionBlock().get();
           transactionBlock.setExpiration(expiration);
@@ -288,7 +296,7 @@ public class Sui {
                                   gasPrice)
                           .thenCompose(
                                   (Function<Void, CompletableFuture<TransactionData>>)
-                                          unused -> transactionBlock.build()).get();
+                                          unused -> transactionBlock.build(gasObj)).get();
           return transactionData;
       } catch (Exception e) {
           throw new RuntimeException(e);

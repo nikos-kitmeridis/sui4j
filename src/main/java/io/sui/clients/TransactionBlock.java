@@ -311,6 +311,98 @@ public class TransactionBlock {
                 });
   }
 
+    public CompletableFuture<TransactionData> build(Tuple3<ObjectID, SequenceNumber, ObjectDigest> gas) {
+        TransactionKind.ProgrammableTransaction.Builder transactionKindBuilder =
+                new TransactionKind.ProgrammableTransaction.Builder();
+        transactionKindBuilder.value = this.programmableTransactionBuilder.build();
+
+        TransactionDataV1.Builder v1builder = new TransactionDataV1.Builder();
+        v1builder.kind = transactionKindBuilder.build();
+        v1builder.sender = sender;
+        v1builder.expiration = transactionExpiration;
+
+        if (this.gasBuilder.owner == null) {
+            this.gasBuilder.owner = sender;
+        }
+
+        CompletableFuture<Long> gasPriceFuture;
+        if (this.gasBuilder.price == null) {
+            gasPriceFuture = queryClient.getReferenceGasPrice();
+        } else {
+            gasPriceFuture = CompletableFuture.completedFuture(this.gasBuilder.price);
+        }
+
+        CompletableFuture<Long> gasBudgetFuture;
+        if (this.gasBuilder.budget == null) {
+            // TODO: USE DRYRUN
+            gasBudgetFuture = CompletableFuture.completedFuture(Long.MAX_VALUE);
+        } else {
+            gasBudgetFuture = CompletableFuture.completedFuture(this.gasBuilder.budget);
+        }
+
+        return CompletableFuture.allOf(gasPriceFuture, gasPriceFuture)
+                .thenCompose(
+                        (Function<Void, CompletableFuture<TransactionData>>)
+                                unused -> {
+                                    List<String> excludeObjects =
+                                            programmableTransactionBuilder.getInputs().values().stream()
+                                                    .flatMap(
+                                                            (Function<CallArg, Stream<ObjectArg>>)
+                                                                    callArg -> {
+                                                                        if (callArg instanceof CallArgObjVec) {
+                                                                            return ((CallArgObjVec) callArg).getObjectArgs().stream();
+                                                                        } else if (callArg instanceof CallArg.Object) {
+                                                                            return Stream.of(((CallArg.Object) callArg).value);
+                                                                        }
+
+                                                                        return Stream.empty();
+                                                                    })
+                                                    .map(
+                                                            (Function<ObjectArg, Optional<String>>)
+                                                                    objectArg -> {
+                                                                        if (objectArg instanceof SharedObject) {
+                                                                            return Optional.of(
+                                                                                    toAddress(((SharedObject) objectArg).id.value.value));
+                                                                        }
+
+                                                                        if (objectArg instanceof ImmOrOwnedObject) {
+                                                                            return Optional.of(
+                                                                                    toAddress(
+                                                                                            ((ImmOrOwnedObject) objectArg)
+                                                                                                    .value
+                                                                                                    .field0
+                                                                                                    .value
+                                                                                                    .value));
+                                                                        }
+
+                                                                        return Optional.empty();
+                                                                    })
+                                                    .filter(Optional::isPresent)
+                                                    .map(Optional::get)
+                                                    .collect(Collectors.toList());
+
+                                    Long gasBudget = gasBudgetFuture.join();
+                                    Long gasPrice = gasPriceFuture.join();
+                                    GasData.Builder gasDataBuilder = new GasData.Builder();
+                                    gasDataBuilder.budget = gasBudget;
+                                    gasDataBuilder.price = gasPrice;
+                                    gasDataBuilder.owner = gasBuilder.owner;
+
+                                    V1.Builder builder = new V1.Builder();
+                                    if (this.gasBuilder.payment == null || this.gasBuilder.payment.isEmpty()) {
+                                        gasDataBuilder.payment = Lists.newArrayList(gas);
+                                        v1builder.gas_data = gasDataBuilder.build();
+                                        builder.value = v1builder.build();
+                                        return CompletableFuture.completedFuture(builder.build());
+                                    } else {
+                                        gasDataBuilder.payment = this.gasBuilder.payment;
+                                        v1builder.gas_data = gasDataBuilder.build();
+                                        builder.value = v1builder.build();
+                                        return CompletableFuture.completedFuture(builder.build());
+                                    }
+                                });
+    }
+
   /**
    * Make move vec completable future.
    *
