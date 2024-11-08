@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 281165273grape@gmail.com
+ * Copyright 2022-2024 281165273grape@gmail.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with
@@ -28,13 +28,21 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.google.gson.ToNumberPolicy;
+import com.google.gson.TypeAdapter;
+import com.google.gson.TypeAdapterFactory;
 import com.google.gson.internal.bind.TypeAdapters;
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import io.sui.jsonrpc.JsonRpc20Request;
 import io.sui.jsonrpc.JsonRpc20Response;
 import io.sui.jsonrpc.JsonRpc20Response.Error.ErrorCode;
 import io.sui.jsonrpc.JsonRpc20WSResponse;
 import io.sui.models.FaucetResponse;
+import io.sui.models.enoki.BaseEnokiResponse;
+import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.ZkLoginResponse;
+import io.sui.models.enoki.ZkProofResponse;
 import io.sui.models.events.EventFilter;
 import io.sui.models.events.EventFilter.PackageEventFilter;
 import io.sui.models.governance.Validator;
@@ -77,6 +85,9 @@ import io.sui.models.transactions.TransactionKind;
 import io.sui.models.transactions.TypeTag;
 import io.sui.models.transactions.TypeTag.StructType;
 import io.sui.models.transactions.TypeTag.VectorType;
+import io.sui.models.zklogin.SaltResponse;
+
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.util.List;
@@ -89,6 +100,69 @@ import java.util.Map;
  * @since 2022.11
  */
 public class GsonJsonHandler implements JsonHandler {
+
+  static class ThrowableAdapterFactory implements TypeAdapterFactory {
+    private ThrowableAdapterFactory() {}
+
+    public static final ThrowableAdapterFactory INSTANCE = new ThrowableAdapterFactory();
+
+    @Override
+    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
+      // Only handles Throwable and subclasses; let other factories handle any other
+      // type
+      if (!Throwable.class.isAssignableFrom(type.getRawType())) {
+        return null;
+      }
+
+      @SuppressWarnings("unchecked")
+      TypeAdapter<T> adapter =
+          (TypeAdapter<T>)
+              new TypeAdapter<Throwable>() {
+                @Override
+                public Throwable read(JsonReader in) throws IOException {
+                  throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void write(JsonWriter out, Throwable value) throws IOException {
+                  if (value == null) {
+                    out.nullValue();
+                    return;
+                  }
+
+                  out.beginObject();
+                  // Include exception type name to give more context; for example
+                  // NullPointerException might
+                  // not have a message
+                  out.name("type");
+                  out.value(value.getClass().getSimpleName());
+
+                  out.name("message");
+                  out.value(value.getMessage());
+
+                  Throwable cause = value.getCause();
+                  if (cause != null) {
+                    out.name("cause");
+                    write(out, cause);
+                  }
+
+                  Throwable[] suppressedArray = value.getSuppressed();
+                  if (suppressedArray.length > 0) {
+                    out.name("suppressed");
+                    out.beginArray();
+
+                    for (Throwable suppressed : suppressedArray) {
+                      write(out, suppressed);
+                    }
+
+                    out.endArray();
+                  }
+                  out.endObject();
+                }
+              };
+      return adapter;
+    }
+  }
 
   /** The type Error code deserializer. */
   public static class ErrorCodeDeserializer implements JsonDeserializer<ErrorCode> {
@@ -542,6 +616,7 @@ public class GsonJsonHandler implements JsonHandler {
             .registerTypeAdapter(BigInteger.class, TypeAdapters.BIG_INTEGER)
             .registerTypeAdapter(
                 MoveNormalizedFunction.class, new MoveNormalizedFunctionTypeDeserializer())
+            .registerTypeAdapterFactory(ThrowableAdapterFactory.INSTANCE)
             .create();
   }
 
@@ -560,6 +635,26 @@ public class GsonJsonHandler implements JsonHandler {
   @Override
   public FaucetResponse fromJsonFaucet(String response) {
     return this.gson.fromJson(response, FaucetResponse.class);
+  }
+
+  public <T> BaseEnokiResponse<T> fromJson(String response, Class<T> responseType) {
+    Type type = TypeToken.getParameterized(BaseEnokiResponse.class, responseType).getType();
+    return gson.fromJson(response, type);
+  }
+
+  @Override
+  public BaseEnokiResponse<ZkLoginResponse> fromZkLogin(String response) {
+    return fromJson(response, ZkLoginResponse.class);
+  }
+
+  @Override
+  public BaseEnokiResponse<NonceResponse> fromNonce(String response) {
+    return fromJson(response, NonceResponse.class);
+  }
+
+  @Override
+  public BaseEnokiResponse<ZkProofResponse> fromProof(String response) {
+    return fromJson(response, ZkProofResponse.class);
   }
 
   @Override

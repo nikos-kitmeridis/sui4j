@@ -15,6 +15,9 @@ version '1.0.0-alpha'
 
 repositories {
 	mavenCentral()
+	flatDir {
+		dirs 'libs'
+	}
 }
 
 dependencies {
@@ -38,7 +41,10 @@ dependencies {
 	}
 	// https://mvnrepository.com/artifact/io.reactivex.rxjava3/rxjava
 	implementation 'io.reactivex.rxjava3:rxjava:3.1.5'
+	implementation name: 'loopring-poseidon-1.2-SNAPSHOT', ext: 'jar'
+	implementation name: 'ove.blake2b-alpha.0', ext: 'jar'
 
+//	implementation "io.github.instantwebp2p:tweetnacl-java:1.1.2"
 
 	// https://mvnrepository.com/artifact/com.squareup.okhttp3/mockwebserver
 	testImplementation 'com.squareup.okhttp3:mockwebserver:4.10.0'
@@ -270,3 +276,23 @@ nexusPublishing {
 checkstyleMain
 		.exclude('io/sui/bcsgen/*.java')
 		.exclude('com/novi/**/*.java')
+
+
+jar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	archiveFileName = 'sui4j-1.0.0-alpha-android.jar'
+
+	from {
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	} eachFile { FileCopyDetails fcd ->
+		if (fcd.relativePath.pathString.contains("okio/") ||
+				fcd.relativePath.pathString.contains("kotlin/") ||
+				fcd.relativePath.pathString.contains("jetbrains/") ||
+				fcd.relativePath.pathString.contains("intellij/") ||
+				fcd.relativePath.pathString.endsWith("com/google/common/util/concurrent/ListenableFuture.class")) {
+			fcd.exclude()
+		}
+	}
+}
+
+
