@@ -23,9 +23,10 @@ import io.sui.jsonrpc.JsonRpc20WSResponse;
 import io.sui.models.FaucetResponse;
 import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.SponsorExecutionResponse;
+import io.sui.models.enoki.SponsorResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofResponse;
-import io.sui.models.zklogin.SaltResponse;
 
 import java.lang.reflect.Type;
 import java.util.Map;
@@ -87,4 +88,8 @@ public interface JsonHandler {
   BaseEnokiResponse<ZkLoginResponse> fromZkLogin(String response);
 
   BaseEnokiResponse<ZkProofResponse> fromProof(String response);
+
+  BaseEnokiResponse<SponsorResponse> fromSponsorResponse(String response);
+
+  BaseEnokiResponse<SponsorExecutionResponse> fromSponsorExecutionResponse(String response);
 }

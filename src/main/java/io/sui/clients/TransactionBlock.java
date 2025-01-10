@@ -207,6 +207,14 @@ public class TransactionBlock {
             });
   }
 
+  public CompletableFuture<TransactionKind> buildOnlyTransactionKind() {
+      TransactionKind.ProgrammableTransaction.Builder transactionKindBuilder =
+              new TransactionKind.ProgrammableTransaction.Builder();
+      transactionKindBuilder.value = this.programmableTransactionBuilder.build();
+
+      return CompletableFuture.completedFuture(transactionKindBuilder.build());
+  }
+
   /**
    * Build completable future.
    *

@@ -41,6 +41,8 @@ import io.sui.jsonrpc.JsonRpc20WSResponse;
 import io.sui.models.FaucetResponse;
 import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.SponsorExecutionResponse;
+import io.sui.models.enoki.SponsorResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofResponse;
 import io.sui.models.events.EventFilter;
@@ -655,6 +657,16 @@ public class GsonJsonHandler implements JsonHandler {
   @Override
   public BaseEnokiResponse<ZkProofResponse> fromProof(String response) {
     return fromJson(response, ZkProofResponse.class);
+  }
+
+  @Override
+  public BaseEnokiResponse<SponsorResponse> fromSponsorResponse(String response) {
+    return fromJson(response, SponsorResponse.class);
+  }
+
+  @Override
+  public BaseEnokiResponse<SponsorExecutionResponse> fromSponsorExecutionResponse(String response) {
+    return fromJson(response, SponsorExecutionResponse.class);
   }
 
   @Override

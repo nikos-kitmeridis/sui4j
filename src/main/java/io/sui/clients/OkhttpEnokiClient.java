@@ -4,6 +4,10 @@ import io.sui.json.JsonHandler;
 import io.sui.models.SuiApiException;
 import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.SponsorExecutionRequest;
+import io.sui.models.enoki.SponsorExecutionResponse;
+import io.sui.models.enoki.SponsorRequest;
+import io.sui.models.enoki.SponsorResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofRequest;
 import io.sui.models.enoki.ZkProofResponse;
@@ -194,6 +198,107 @@ public class OkhttpEnokiClient implements EnokiClient {
                             }
                         });
 
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<BaseEnokiResponse<SponsorResponse>> requestSponsor(SponsorRequest request) {
+        final CompletableFuture<BaseEnokiResponse<SponsorResponse>> future = new CompletableFuture<>();
+        final Request okhttpRequest;
+        try {
+            final RequestBody requestBody =
+                    RequestBody.create(request.toString(), MediaType.get("application/json; charset=utf-8"));
+
+            okhttpRequest =
+                    new Request.Builder()
+                            .header("Authorization", String.format("Bearer %s", apiKey))
+                            .url(String.format("%s/v1/transaction-blocks/sponsor", this.baseUrl))
+                            .post(requestBody)
+                            .build();
+        } catch (Throwable throwable) {
+            future.completeExceptionally(throwable);
+            return future;
+        }
+
+        this.httpClient
+                .newCall(okhttpRequest)
+                .enqueue(
+                        new Callback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+                                future.completeExceptionally(e);
+                            }
+
+                            @Override
+                            public void onResponse(Call call, @NotNull Response response) {
+                                try {
+                                    final ResponseBody responseBody = response.body();
+                                    final BaseEnokiResponse<SponsorResponse> sponsorResponse;
+                                    if (response.isSuccessful()) {
+                                        sponsorResponse =
+                                                jsonHandler.fromSponsorResponse(Objects.requireNonNull(responseBody).string());
+                                        future.complete(sponsorResponse);
+                                    } else if (response.code() == 403) {
+                                        future.completeExceptionally(new SuiApiException(new HttpForbiddenException()));
+                                    } else {
+                                        future.completeExceptionally(new RuntimeException(Integer.toString(response.code())));
+                                    }
+                                } catch (Throwable throwable) {
+                                    future.completeExceptionally(throwable);
+                                }
+                            }
+                        });
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> executeSponsor(SponsorExecutionRequest request) {
+        final CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> future = new CompletableFuture<>();
+        final Request okhttpRequest;
+        try {
+            final RequestBody requestBody =
+                    RequestBody.create(request.toString(), MediaType.get("application/json; charset=utf-8"));
+
+            okhttpRequest =
+                    new Request.Builder()
+                            .header("Authorization", String.format("Bearer %s", apiKey))
+                            .url(String.format("%s/v1/transaction-blocks/sponsor/%s", this.baseUrl, request.getDigest()))
+                            .post(requestBody)
+                            .build();
+        } catch (Throwable throwable) {
+            future.completeExceptionally(throwable);
+            return future;
+        }
+
+        this.httpClient
+                .newCall(okhttpRequest)
+                .enqueue(
+                        new Callback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+                                future.completeExceptionally(e);
+                            }
+
+                            @Override
+                            public void onResponse(Call call, @NotNull Response response) {
+                                try {
+                                    final ResponseBody responseBody = response.body();
+                                    final BaseEnokiResponse<SponsorExecutionResponse> sponsorExecutionResponse;
+                                    if (response.isSuccessful()) {
+                                        sponsorExecutionResponse =
+                                                jsonHandler.fromSponsorExecutionResponse(
+                                                        Objects.requireNonNull(responseBody).string());
+                                        future.complete(sponsorExecutionResponse);
+                                    } else if (response.code() == 403) {
+                                        future.completeExceptionally(new SuiApiException(new HttpForbiddenException()));
+                                    } else {
+                                        future.completeExceptionally(new RuntimeException(Integer.toString(response.code())));
+                                    }
+                                } catch (Throwable throwable) {
+                                    future.completeExceptionally(throwable);
+                                }
+                            }
+                        });
         return future;
     }
 }

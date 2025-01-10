@@ -62,6 +62,10 @@ import io.sui.models.coin.CoinSupply;
 import io.sui.models.coin.PaginatedCoins;
 import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
+import io.sui.models.enoki.SponsorExecutionRequest;
+import io.sui.models.enoki.SponsorExecutionResponse;
+import io.sui.models.enoki.SponsorRequest;
+import io.sui.models.enoki.SponsorResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofRequest;
 import io.sui.models.enoki.ZkProofResponse;
@@ -174,6 +178,26 @@ public class Sui {
 
     public CompletableFuture<BaseEnokiResponse<ZkProofResponse>> requestZkProof(ZkProofRequest proofRequest) {
         return this.enokiClient.get().requestZkProof(proofRequest);
+    }
+
+    /**
+     * Request sponsor from Enoki client.
+     *
+     * @param sponsorRequest the sponsor request
+     * @return the completable future
+     */
+    public CompletableFuture<BaseEnokiResponse<SponsorResponse>> requestSponsor(SponsorRequest sponsorRequest) {
+        return this.enokiClient.get().requestSponsor(sponsorRequest);
+    }
+
+    /**
+     * Execute sponsor request through Enoki client.
+     *
+     * @param sponsorExecutionRequest the sponsor execution request
+     * @return the completable future
+     */
+    public CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> executeSponsor(SponsorExecutionRequest sponsorExecutionRequest) {
+        return this.enokiClient.get().executeSponsor(sponsorExecutionRequest);
     }
 
     public KeyStore getKeyStore() {

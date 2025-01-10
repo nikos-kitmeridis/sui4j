@@ -11,4 +11,8 @@ public interface EnokiClient {
     CompletableFuture<BaseEnokiResponse<ZkLoginResponse>> requestZkLogin(String jwt);
 
     CompletableFuture<BaseEnokiResponse<ZkProofResponse>> requestZkProof(ZkProofRequest request);
+
+    CompletableFuture<BaseEnokiResponse<SponsorResponse>> requestSponsor(SponsorRequest request);
+
+    CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> executeSponsor(SponsorExecutionRequest request);
 }
