@@ -15,4 +15,6 @@ public interface EnokiClient {
     CompletableFuture<BaseEnokiResponse<SponsorResponse>> requestSponsor(SponsorRequest request);
 
     CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> executeSponsor(SponsorExecutionRequest request);
+
+    CompletableFuture<BaseEnokiResponse<SubnameResponse>> createSubname(String jwt, SubnameRequest request);
 }

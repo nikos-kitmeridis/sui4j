@@ -43,6 +43,7 @@ import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
 import io.sui.models.enoki.SponsorExecutionResponse;
 import io.sui.models.enoki.SponsorResponse;
+import io.sui.models.enoki.SubnameResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofResponse;
 import io.sui.models.events.EventFilter;
@@ -667,6 +668,11 @@ public class GsonJsonHandler implements JsonHandler {
   @Override
   public BaseEnokiResponse<SponsorExecutionResponse> fromSponsorExecutionResponse(String response) {
     return fromJson(response, SponsorExecutionResponse.class);
+  }
+
+  @Override
+  public BaseEnokiResponse<SubnameResponse> fromSubnameResponse(String response) {
+    return fromJson(response, SubnameResponse.class);
   }
 
   @Override

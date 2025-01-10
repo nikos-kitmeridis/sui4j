@@ -25,6 +25,7 @@ import io.sui.models.enoki.BaseEnokiResponse;
 import io.sui.models.enoki.NonceResponse;
 import io.sui.models.enoki.SponsorExecutionResponse;
 import io.sui.models.enoki.SponsorResponse;
+import io.sui.models.enoki.SubnameResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofResponse;
 
@@ -92,4 +93,6 @@ public interface JsonHandler {
   BaseEnokiResponse<SponsorResponse> fromSponsorResponse(String response);
 
   BaseEnokiResponse<SponsorExecutionResponse> fromSponsorExecutionResponse(String response);
+
+  BaseEnokiResponse<SubnameResponse> fromSubnameResponse(String response);
 }

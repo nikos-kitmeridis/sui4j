@@ -8,6 +8,8 @@ import io.sui.models.enoki.SponsorExecutionRequest;
 import io.sui.models.enoki.SponsorExecutionResponse;
 import io.sui.models.enoki.SponsorRequest;
 import io.sui.models.enoki.SponsorResponse;
+import io.sui.models.enoki.SubnameRequest;
+import io.sui.models.enoki.SubnameResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofRequest;
 import io.sui.models.enoki.ZkProofResponse;
@@ -299,6 +301,59 @@ public class OkhttpEnokiClient implements EnokiClient {
                                 }
                             }
                         });
+        return future;
+    }
+
+    public CompletableFuture<BaseEnokiResponse<SubnameResponse>> createSubname(String jwt, SubnameRequest request) {
+        final CompletableFuture<BaseEnokiResponse<SubnameResponse>> future = new CompletableFuture<>();
+        final Request okhttpRequest;
+        try {
+            // Serialize request body
+            final RequestBody requestBody =
+                    RequestBody.create(request.toString(), MediaType.get("application/json; charset=utf-8"));
+
+            // Build the request
+            okhttpRequest = new Request.Builder()
+//                    .header("zklogin-jwt", jwt)
+                    .header("Authorization", String.format("Bearer %s", apiKey))
+                    .header("Content-Type", "application/json")
+                    .url(String.format("%s/v1/subnames", this.baseUrl))
+                    .post(requestBody)
+                    .build();
+        } catch (Throwable throwable) {
+            future.completeExceptionally(throwable);
+            return future;
+        }
+
+        // Asynchronous network call
+        this.httpClient
+                .newCall(okhttpRequest)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        future.completeExceptionally(e);
+                    }
+
+                    @Override
+                    public void onResponse(Call call, @NotNull Response response) {
+                        try {
+                            final ResponseBody responseBody = response.body();
+                            final BaseEnokiResponse<SubnameResponse> subnameResponse;
+                            if (response.isSuccessful()) {
+                                subnameResponse =
+                                        jsonHandler.fromSubnameResponse(Objects.requireNonNull(responseBody).string());
+                                future.complete(subnameResponse);
+                            } else if (response.code() == 403) {
+                                future.completeExceptionally(new SuiApiException(new HttpForbiddenException()));
+                            } else {
+                                future.completeExceptionally(new RuntimeException(Integer.toString(response.code())));
+                            }
+                        } catch (Throwable throwable) {
+                            future.completeExceptionally(throwable);
+                        }
+                    }
+                });
+
         return future;
     }
 }

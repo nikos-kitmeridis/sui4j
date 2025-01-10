@@ -66,6 +66,8 @@ import io.sui.models.enoki.SponsorExecutionRequest;
 import io.sui.models.enoki.SponsorExecutionResponse;
 import io.sui.models.enoki.SponsorRequest;
 import io.sui.models.enoki.SponsorResponse;
+import io.sui.models.enoki.SubnameRequest;
+import io.sui.models.enoki.SubnameResponse;
 import io.sui.models.enoki.ZkLoginResponse;
 import io.sui.models.enoki.ZkProofRequest;
 import io.sui.models.enoki.ZkProofResponse;
@@ -198,6 +200,17 @@ public class Sui {
      */
     public CompletableFuture<BaseEnokiResponse<SponsorExecutionResponse>> executeSponsor(SponsorExecutionRequest sponsorExecutionRequest) {
         return this.enokiClient.get().executeSponsor(sponsorExecutionRequest);
+    }
+
+    /**
+     * Request to create a subname through the Enoki client.
+     *
+     * @param jwt the JWT token
+     * @param subnameRequest the subname request object
+     * @return the completable future
+     */
+    public CompletableFuture<BaseEnokiResponse<SubnameResponse>> createSubname(String jwt, SubnameRequest subnameRequest) {
+        return this.enokiClient.get().createSubname(jwt, subnameRequest);
     }
 
     public KeyStore getKeyStore() {

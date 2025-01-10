@@ -99,7 +99,12 @@ public class SuiIntTests {
 //  private static final String KEY_STORE_PATH =
 //      Paths.get("src", "integrationTest", "sui.keystore").toAbsolutePath().toString();
 
-    private static final Sui SUI = new Sui(BASE_NODE_URL, BASE_FAUCET_URL, TEST_KEY_STORE_PATH, "https://api.enoki.mystenlabs.com", "enoki_private_123");
+    private static final Sui SUI = new Sui(
+            BASE_NODE_URL,
+            BASE_FAUCET_URL,
+            TEST_KEY_STORE_PATH,
+            "https://api.enoki.mystenlabs.com",
+            "enoki_private_123");
 
     @BeforeAll
     static void setUp() {
@@ -239,6 +244,19 @@ public class SuiIntTests {
                 SUI.executeSponsor(new SponsorExecutionRequest(signature, txDigest));
         System.out.println(executionResponse.get().getData().toString());
         System.out.println();
+    }
+
+    @Test
+    void enokiSubnames() throws Exception {
+        SubnameRequest subnameRequest = new SubnameRequest(
+                "@nikos", // domain
+                "testnet", // network
+                "nikos-subname", // subname
+                "0xadc3a0bb21840f732435f8b649e99df6b29cd27854dfa4b020e3bee07ea09b96" // targetAddress
+        );
+
+        SubnameResponse subnameResponse = SUI.createSubname("", subnameRequest).get().getData();
+        System.out.println(subnameResponse);
     }
 
     /**
